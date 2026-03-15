@@ -79,14 +79,22 @@ export interface AppSettings {
   lastReducedMonth: string;
 }
 
+export interface WealthSnapshot {
+  month: string; // YYYY-MM
+  netWorth: number;
+  totalAssets: number;
+  totalLiabilities: number;
+}
+
 export interface FinancialState {
   assets: Asset[];
   liabilities: Liability[];
   transactions: Transaction[];
   settings: AppSettings;
+  wealthHistory: WealthSnapshot[];
 }
 
-export type ViewState = 'DASHBOARD' | 'ASSETS' | 'LIABILITIES' | 'CASHFLOW' | 'ADVISOR';
+export type ViewState = 'DASHBOARD' | 'ASSETS' | 'LIABILITIES' | 'CASHFLOW' | 'ADVISOR' | 'PLANNING' | 'HISTORY' | 'CALENDAR';
 
 export const LIABILITY_CATEGORIES = [
   'Habitação', 'Veículo', 'Educação', 'Saúde', 'Eletrônicos',

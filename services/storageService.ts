@@ -2,7 +2,7 @@ import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import {
   FinancialState, AssetType, Liquidity, LiabilityType,
-  LiabilityStatus, TransactionType, Recurrence
+  LiabilityStatus, TransactionType, Recurrence, WealthSnapshot
 } from '../types';
 
 const DOC_REF = doc(db, 'users', 'default');
@@ -60,7 +60,8 @@ export const DEFAULT_STATE: FinancialState = {
   settings: {
     debtReduceDay: 10,
     lastReducedMonth: ''
-  }
+  },
+  wealthHistory: []
 };
 
 export const saveState = async (state: FinancialState): Promise<void> => {
@@ -71,6 +72,7 @@ export const saveState = async (state: FinancialState): Promise<void> => {
       liabilities: JSON.parse(JSON.stringify(state.liabilities)),
       transactions: JSON.parse(JSON.stringify(state.transactions)),
       settings: JSON.parse(JSON.stringify(state.settings)),
+      wealthHistory: JSON.parse(JSON.stringify(state.wealthHistory || [])),
     });
     console.log('[Firebase] Dados salvos com sucesso!');
   } catch (error) {
@@ -96,6 +98,7 @@ export const subscribeToState = (
         })),
         transactions: data.transactions || DEFAULT_STATE.transactions,
         settings: data.settings || { debtReduceDay: 10, lastReducedMonth: '' },
+        wealthHistory: (data.wealthHistory || []) as WealthSnapshot[],
       };
       callback(normalized);
     } else {

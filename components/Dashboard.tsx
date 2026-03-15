@@ -1,12 +1,12 @@
 import React from 'react';
-import { FinancialState, TransactionType, LiabilityStatus } from '../types';
+import { FinancialState, TransactionType, LiabilityStatus, Liquidity } from '../types';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area
+  XAxis, YAxis, CartesianGrid, Legend, AreaChart, Area, ComposedChart, Line, ReferenceLine
 } from 'recharts';
 import {
   Wallet, TrendingUp, TrendingDown, Landmark, Coins, PiggyBank,
-  Shield, Target, Percent
+  Shield, Target, Percent, Zap, Umbrella
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -76,6 +76,39 @@ const projectWealth = (state: FinancialState, months = 24) => {
   return points;
 };
 
+// Cashflow release timeline: months where debts end
+const buildPayoffTimeline = (state: FinancialState, currentMonthlyIncome: number, currentMonthlyBalance: number) => {
+  const byMonth: Record<string, { freed: number; debts: string[] }> = {};
+
+  state.liabilities
+    .filter(l => l.status === LiabilityStatus.ACTIVE && l.installmentsCount > 0 && l.installmentValue > 0 && l.installmentsCount <= 24)
+    .forEach(l => {
+      const now = new Date();
+      // Use local time constructor to avoid UTC timezone offset shifting the month
+      const d = new Date(now.getFullYear(), now.getMonth() + l.installmentsCount, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!byMonth[key]) byMonth[key] = { freed: 0, debts: [] };
+      byMonth[key].freed += l.installmentValue;
+      byMonth[key].debts.push(l.name);
+    });
+
+  const sorted = Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b));
+  let cumulative = 0;
+  return sorted.map(([key, val]) => {
+    cumulative += val.freed;
+    const [y, m] = key.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return {
+      label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+      liberado: Math.round(val.freed),
+      acumulado: Math.round(cumulative),
+      rendaTotal: Math.round(currentMonthlyIncome + cumulative),
+      saldoPrevisto: Math.round(currentMonthlyBalance + cumulative),
+      debts: val.debts,
+    };
+  });
+};
+
 const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const totalAssets = state.assets.reduce((sum, a) => sum + a.currentValue, 0);
   const totalLiabilities = state.liabilities
@@ -107,6 +140,13 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const comprometimento = totalMonthlyIncome > 0 ? (monthlyInstallments / totalMonthlyIncome) * 100 : 0;
   const liberdadeFinanceira = totalMonthlyOutflow > 0 ? (monthlyPassiveIncome / totalMonthlyOutflow) * 100 : 0;
   const taxaPoupanca = totalMonthlyIncome > 0 ? (monthlyBalance / totalMonthlyIncome) * 100 : 0;
+
+  // Emergency fund
+  const liquidAssets = state.assets
+    .filter(a => a.liquidity === Liquidity.HIGH)
+    .reduce((s, a) => s + a.currentValue, 0);
+  const emergencyMonths = totalMonthlyOutflow > 0 ? liquidAssets / totalMonthlyOutflow : 0;
+
 
   // Monthly interest cost
   const totalMonthlyInterest = state.liabilities
@@ -147,7 +187,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const liberdadeColor = liberdadeFinanceira >= 100 ? 'text-emerald-600' : liberdadeFinanceira >= 50 ? 'text-indigo-600' : 'text-slate-600';
   const poupancaColor = taxaPoupanca >= 20 ? 'text-emerald-600' : taxaPoupanca >= 10 ? 'text-amber-600' : 'text-red-600';
 
-  const formatCurrency = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const formatCurrency = (v: number) => `R$ ${(v ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -232,7 +272,7 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       {/* Health Indicators */}
       <div>
         <h3 className="text-lg font-semibold text-slate-700 mb-3">Indicadores de Saúde Financeira</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Comprometimento de Renda */}
           <div className={`bg-white p-5 rounded-xl shadow-sm border flex flex-col gap-2 ${comprometimentoBg}`}>
             <div className="flex justify-between items-start">
@@ -292,8 +332,30 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
             </p>
             <p className="text-xs text-slate-400">Saldo mensal / Renda total</p>
           </div>
+
+          {/* Fundo de Emergência */}
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-2">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-slate-600">Fundo de Emergência</p>
+                <p className={`text-3xl font-bold mt-1 ${emergencyMonths >= 6 ? 'text-emerald-600' : emergencyMonths >= 3 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {emergencyMonths.toFixed(1)} meses
+                </p>
+              </div>
+              <div className="p-2 bg-teal-50 rounded-lg"><Umbrella size={22} className="text-teal-600" /></div>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2">
+              <div className={`h-2 rounded-full transition-all ${emergencyMonths >= 6 ? 'bg-emerald-500' : emergencyMonths >= 3 ? 'bg-amber-500' : 'bg-red-500'}`}
+                style={{ width: `${Math.min(100, (emergencyMonths / 6) * 100)}%` }} />
+            </div>
+            <p className="text-xs text-slate-500">
+              {emergencyMonths >= 6 ? '✅ Seguro (6+ meses)' : emergencyMonths >= 3 ? '⚠️ Atenção (3–6 meses)' : '🚨 Insuficiente (< 3 meses)'}
+            </p>
+            <p className="text-xs text-slate-400">Ativos líquidos / Gastos mensais · {formatCurrency(liquidAssets)}</p>
+          </div>
         </div>
       </div>
+
 
       {/* Charts Row 1: Asset Distribution + Expenses by Category + Cash Flow */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -415,6 +477,79 @@ const Dashboard: React.FC<DashboardProps> = ({ state }) => {
           </div>
         </div>
       </div>
+
+      {/* Debt Payoff Cashflow Release */}
+      {(() => {
+        const payoffData = buildPayoffTimeline(state, totalMonthlyIncome, monthlyBalance);
+        if (payoffData.length === 0) return null;
+        const totalFreed = payoffData[payoffData.length - 1]?.acumulado ?? 0;
+        return (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                  <Zap size={18} className="text-amber-500" />
+                  Liberação de Caixa por Quitação de Dívidas
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  Renda mensal liberada conforme as dívidas terminam
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-400">Total liberado ao final</p>
+                <p className="text-lg font-bold text-emerald-600">{formatCurrency(totalFreed)}/mês</p>
+              </div>
+            </div>
+
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={payoffData} margin={{ top: 10, right: 16, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="left" tick={{ fontSize: 10 }} tickFormatter={(v) => `R$${(v / 1000).toFixed(1)}k`} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickFormatter={(v) => `R$${(v / 1000).toFixed(1)}k`} />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const entry = payoffData.find(p => p.label === label);
+                      return (
+                        <div className="bg-white border border-slate-200 rounded-lg shadow p-3 text-xs">
+                          <p className="font-semibold text-slate-700 mb-1">{label}</p>
+                          {entry?.debts.map(d => (
+                            <p key={d} className="text-slate-500">✓ {d}</p>
+                          ))}
+                          <p className="text-emerald-600 mt-1">+{formatCurrency((payload.find(p => p.dataKey === 'liberado')?.value as number) ?? 0)}/mês liberado</p>
+                          <p className="text-indigo-600">Acumulado liberado: {formatCurrency((payload.find(p => p.dataKey === 'acumulado')?.value as number) ?? 0)}/mês</p>
+                          <p className="text-amber-600 font-semibold">Renda total prevista: {formatCurrency((payload.find(p => p.dataKey === 'rendaTotal')?.value as number) ?? 0)}/mês</p>
+                          <p className="text-teal-600 font-semibold">Saldo mensal previsto: {formatCurrency((payload.find(p => p.dataKey === 'saldoPrevisto')?.value as number) ?? 0)}/mês</p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar yAxisId="left" dataKey="liberado" name="Liberado no mês" fill="#10b981" radius={[4, 4, 0, 0]} barSize={32} />
+                  <Line yAxisId="right" type="monotone" dataKey="acumulado" name="Acumulado liberado" stroke="#6366f1" strokeWidth={2} dot={{ r: 3, fill: '#6366f1' }} />
+                  <Line yAxisId="right" type="monotone" dataKey="rendaTotal" name="Renda total prevista" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} strokeDasharray="5 3" />
+                  <Line yAxisId="right" type="monotone" dataKey="saldoPrevisto" name="Saldo mensal previsto" stroke="#14b8a6" strokeWidth={2.5} dot={{ r: 4, fill: '#14b8a6' }} />
+                  <ReferenceLine yAxisId="left" y={0} stroke="#e2e8f0" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs text-slate-400 mb-2">Datas de quitação previstas:</p>
+              <div className="flex flex-wrap gap-2">
+                {payoffData.map(p => (
+                  <div key={p.label} className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-1.5">
+                    <span className="text-xs font-semibold text-emerald-700">{p.label}</span>
+                    <span className="text-xs text-slate-500">— +{formatCurrency(p.liberado)}/mês</span>
+                    <span className="text-xs text-slate-400">({p.debts.join(', ')})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

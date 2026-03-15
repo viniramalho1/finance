@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Wallet, CreditCard, ArrowRightLeft, Bot, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Wallet, CreditCard, ArrowRightLeft, Bot, Menu, X, Calculator, History, CalendarDays } from 'lucide-react';
 import { FinancialState, ViewState, LiabilityStatus } from './types';
 import { saveState, subscribeToState, DEFAULT_STATE } from './services/storageService';
 import Dashboard from './components/Dashboard';
@@ -7,6 +7,9 @@ import AssetsManager from './components/AssetsManager';
 import LiabilitiesManager from './components/LiabilitiesManager';
 import TransactionsManager from './components/TransactionsManager';
 import AiAdvisor from './components/AiAdvisor';
+import PlanningTools from './components/PlanningTools';
+import WealthHistory from './components/WealthHistory';
+import FinancialCalendar from './components/FinancialCalendar';
 
 const App: React.FC = () => {
   const [state, setState] = useState<FinancialState>(DEFAULT_STATE);
@@ -89,6 +92,24 @@ const App: React.FC = () => {
     console.log(`[AutoReduce] ${months} mês(es) de parcelas reduzidos. Atualizado até ${currentMonth}`);
   }, [isLoading]);
 
+  // Save monthly wealth snapshot
+  useEffect(() => {
+    if (isLoading) return;
+    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const alreadySaved = (state.wealthHistory || []).some(s => s.month === currentMonth);
+    if (alreadySaved) return;
+
+    const totalAssets = state.assets.reduce((s, a) => s + a.currentValue, 0);
+    const totalLiabilities = state.liabilities
+      .filter(l => l.status === LiabilityStatus.ACTIVE)
+      .reduce((s, l) => s + l.totalValue, 0);
+    const snapshot = { month: currentMonth, netWorth: totalAssets - totalLiabilities, totalAssets, totalLiabilities };
+    const updated = { ...state, wealthHistory: [...(state.wealthHistory || []), snapshot] };
+    setState(updated);
+    saveState(updated);
+    console.log(`[WealthHistory] Snapshot salvo para ${currentMonth}`);
+  }, [isLoading]);
+
   const updateState = (newState: Partial<FinancialState>) => {
     const updated = { ...state, ...newState };
     setState(updated);
@@ -132,12 +153,18 @@ const App: React.FC = () => {
             FinHealth Pro
           </h1>
         </div>
-        <nav className="flex-1 px-4 space-y-2">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Visão Geral" />
           <NavItem view="ASSETS" icon={Wallet} label="Ativos & Bens" />
           <NavItem view="LIABILITIES" icon={CreditCard} label="Dívidas & Passivos" />
           <NavItem view="CASHFLOW" icon={ArrowRightLeft} label="Receitas & Despesas" />
           <NavItem view="ADVISOR" icon={Bot} label="Consultor IA" />
+          <div className="pt-2 pb-1">
+            <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Ferramentas</p>
+          </div>
+          <NavItem view="PLANNING" icon={Calculator} label="Planejamento" />
+          <NavItem view="HISTORY" icon={History} label="Histórico" />
+          <NavItem view="CALENDAR" icon={CalendarDays} label="Calendário" />
         </nav>
         <div className="p-4 border-t border-slate-100">
           <p className="text-xs text-slate-400 text-center">v2.0.0 - Firebase</p>
@@ -157,12 +184,16 @@ const App: React.FC = () => {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-10 bg-white pt-16 px-4">
-          <nav className="space-y-2">
+          <nav className="space-y-1">
             <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Visão Geral" />
             <NavItem view="ASSETS" icon={Wallet} label="Ativos & Bens" />
             <NavItem view="LIABILITIES" icon={CreditCard} label="Dívidas & Passivos" />
             <NavItem view="CASHFLOW" icon={ArrowRightLeft} label="Receitas & Despesas" />
             <NavItem view="ADVISOR" icon={Bot} label="Consultor IA" />
+            <p className="px-4 pt-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Ferramentas</p>
+            <NavItem view="PLANNING" icon={Calculator} label="Planejamento" />
+            <NavItem view="HISTORY" icon={History} label="Histórico" />
+            <NavItem view="CALENDAR" icon={CalendarDays} label="Calendário" />
           </nav>
         </div>
       )}
@@ -193,6 +224,9 @@ const App: React.FC = () => {
             />
           )}
           {currentView === 'ADVISOR' && <AiAdvisor state={state} />}
+          {currentView === 'PLANNING' && <PlanningTools state={state} />}
+          {currentView === 'HISTORY' && <WealthHistory state={state} />}
+          {currentView === 'CALENDAR' && <FinancialCalendar state={state} />}
         </div>
       </main>
     </div>
