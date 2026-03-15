@@ -5,23 +5,113 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FinHealth Pro</title>
 
-    <!-- Tailwind via CDN (ok para dev) -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Fonte -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
 
     <style>
+      * { box-sizing: border-box; }
+
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #f8fafc;
+        background-color: #070b11;
+        color: #e2e8f0;
+        -webkit-font-smoothing: antialiased;
       }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar { width: 5px; height: 5px; }
+      ::-webkit-scrollbar-track { background: #0d1526; }
+      ::-webkit-scrollbar-thumb { background: #1e2d40; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #2a3f56; }
+
+      /* Inputs globais dark */
+      input, select, textarea {
+        background-color: #0a1628 !important;
+        border-color: #1e2d40 !important;
+        color: #e2e8f0 !important;
+        outline: none !important;
+      }
+      input:focus, select:focus, textarea:focus {
+        border-color: #00d4aa !important;
+        box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.08) !important;
+      }
+      input::placeholder, textarea::placeholder { color: #475569 !important; }
+      input[type="date"]::-webkit-calendar-picker-indicator,
+      input[type="time"]::-webkit-calendar-picker-indicator {
+        filter: invert(0.6) brightness(1.2);
+        cursor: pointer;
+      }
+      option, datalist option { background: #0d1526 !important; color: #e2e8f0; }
+      input[type="range"] { accent-color: #00d4aa; }
+
+      /* Recharts dark */
+      .recharts-cartesian-grid-horizontal line,
+      .recharts-cartesian-grid-vertical line { stroke: #1a2640 !important; }
+      .recharts-text, .recharts-label { fill: #64748b !important; }
+      .recharts-legend-item-text { color: #64748b !important; }
+      .recharts-tooltip-wrapper .recharts-default-tooltip {
+        background: #0f1a2e !important;
+        border: 1px solid #1e2d40 !important;
+        border-radius: 10px !important;
+        color: #e2e8f0 !important;
+      }
+
+      /* Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in { animation: fadeIn 0.25s ease-out; }
+
+      @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-down { animation: fadeInDown 0.2s ease-out; }
+
+      /* Prose markdown dark */
+      .prose-dark h1, .prose-dark h2, .prose-dark h3 { color: #f1f5f9; font-weight: 600; }
+      .prose-dark h1 { font-size: 1.25rem; }
+      .prose-dark h2 { font-size: 1.1rem; }
+      .prose-dark h3 { font-size: 1rem; }
+      .prose-dark p, .prose-dark li { color: #94a3b8; line-height: 1.7; }
+      .prose-dark strong { color: #e2e8f0; }
+      .prose-dark code {
+        background: #1a2640;
+        color: #00d4aa;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.85em;
+      }
+      .prose-dark pre {
+        background: #0a1628;
+        border: 1px solid #1e2d40;
+        border-radius: 8px;
+        padding: 1rem;
+      }
+      .prose-dark hr { border-color: #1e2d40; }
+      .prose-dark ul, .prose-dark ol { color: #94a3b8; padding-left: 1.5rem; }
+      .prose-dark blockquote {
+        border-left: 3px solid #00d4aa;
+        color: #94a3b8;
+        padding-left: 1rem;
+        margin-left: 0;
+      }
+      .prose-dark a { color: #00d4aa; text-decoration: none; }
+      .prose-dark a:hover { text-decoration: underline; }
+      .prose-dark table { border-collapse: collapse; width: 100%; }
+      .prose-dark th, .prose-dark td {
+        border: 1px solid #1e2d40;
+        padding: 0.5rem 0.75rem;
+        color: #94a3b8;
+      }
+      .prose-dark th { background: #0a1628; color: #64748b; font-weight: 600; }
     </style>
 
-    <!-- Importmap (funciona, mas não é padrão com Vite) -->
     <script type="importmap">
       {
         "imports": {
@@ -39,8 +129,6 @@
 
   <body>
     <div id="root"></div>
-
-    <!-- 🔥 ISSO É O QUE FALTAVA -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

@@ -9,7 +9,18 @@ interface TransactionsManagerProps {
   onUpdate: (transactions: Transaction[]) => void;
 }
 
-const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6'];
+const CHART_COLORS = ['#00d4aa', '#6366f1', '#f0b429', '#f43f5e', '#60a5fa', '#a78bfa', '#34d399', '#fb923c'];
+
+const TOOLTIP_STYLE = {
+  background: '#0f1a2e',
+  border: '1px solid #1e2d40',
+  borderRadius: '10px',
+  color: '#e2e8f0',
+  fontSize: '12px',
+};
+
+const INPUT_CLASS = "w-full bg-[#0a1628] border border-[#1e2d40] text-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-[#00d4aa] transition-colors placeholder-slate-600";
+const LABEL_CLASS = "block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wider";
 
 const TransactionsManager: React.FC<TransactionsManagerProps> = ({ transactions, assets, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -37,7 +48,6 @@ const TransactionsManager: React.FC<TransactionsManagerProps> = ({ transactions,
 
   const categories = formData.type === TransactionType.INCOME ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-  // Income calculations
   const totalActiveIncome = transactions
     .filter(t => t.type === TransactionType.INCOME)
     .reduce((sum, t) => sum + t.amount, 0);
@@ -48,8 +58,8 @@ const TransactionsManager: React.FC<TransactionsManagerProps> = ({ transactions,
 
   const totalMacroIncome = totalActiveIncome + totalPassiveIncome;
   const totalExpense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
+  const balance = totalMacroIncome - totalExpense;
 
-  // Spending by category
   const expenseByCategory = transactions
     .filter(t => t.type === TransactionType.EXPENSE)
     .reduce((acc, t) => {
@@ -62,7 +72,6 @@ const TransactionsManager: React.FC<TransactionsManagerProps> = ({ transactions,
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Income by category
   const incomeByCategory = transactions
     .filter(t => t.type === TransactionType.INCOME)
     .reduce((acc, t) => {
@@ -76,214 +85,252 @@ const TransactionsManager: React.FC<TransactionsManagerProps> = ({ transactions,
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Form */}
-      <div className="lg:col-span-1 space-y-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Novo Lançamento</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Descrição</label>
-              <input required type="text" placeholder="Ex: Salário Mensal" value={formData.description}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                className="mt-1 block w-full rounded-md border-slate-300 border p-2 shadow-sm sm:text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-100">Receitas & Despesas</h2>
+        <p className="text-slate-500 text-sm mt-0.5">Controle seu fluxo de caixa mensal</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Form Column */}
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-slate-300 mb-4 uppercase tracking-wider">Novo Lançamento</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700">Tipo</label>
-                <select value={formData.type}
-                  onChange={e => handleTypeChange(e.target.value as TransactionType)}
-                  className="mt-1 block w-full rounded-md border-slate-300 border p-2 sm:text-sm">
-                  <option value={TransactionType.INCOME}>Receita</option>
-                  <option value={TransactionType.EXPENSE}>Despesa</option>
+                <label className={LABEL_CLASS}>Descrição</label>
+                <input required type="text" placeholder="Ex: Salário Mensal" value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  className={INPUT_CLASS} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LABEL_CLASS}>Tipo</label>
+                  <select value={formData.type}
+                    onChange={e => handleTypeChange(e.target.value as TransactionType)}
+                    className={INPUT_CLASS}>
+                    <option value={TransactionType.INCOME}>Receita</option>
+                    <option value={TransactionType.EXPENSE}>Despesa</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL_CLASS}>Valor (R$)</label>
+                  <input required type="number" step="0.01" value={formData.amount}
+                    onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                    className={INPUT_CLASS} />
+                </div>
+              </div>
+              <div>
+                <label className={LABEL_CLASS}>Categoria</label>
+                <input required type="text" list="tx-categories" placeholder="Selecione ou digite"
+                  value={formData.category}
+                  onChange={e => setFormData({ ...formData, category: e.target.value })}
+                  className={INPUT_CLASS} />
+                <datalist id="tx-categories">
+                  {categories.map(c => <option key={c} value={c} />)}
+                </datalist>
+              </div>
+              <div>
+                <label className={LABEL_CLASS}>Recorrência</label>
+                <select value={formData.recurrence}
+                  onChange={e => setFormData({ ...formData, recurrence: e.target.value as Recurrence })}
+                  className={INPUT_CLASS}>
+                  {Object.values(Recurrence).map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">Valor (R$)</label>
-                <input required type="number" step="0.01" value={formData.amount}
-                  onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                  className="mt-1 block w-full rounded-md border-slate-300 border p-2 sm:text-sm" />
+                <label className={LABEL_CLASS}>Data</label>
+                <input type="date" value={formData.date}
+                  onChange={e => setFormData({ ...formData, date: e.target.value })}
+                  className={INPUT_CLASS} />
+              </div>
+              <button
+                type="submit"
+                className="w-full flex justify-center items-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+                style={{ background: '#00d4aa', color: '#070b11' }}
+              >
+                <Plus size={17} strokeWidth={2.5} />
+                Adicionar
+              </button>
+            </form>
+          </div>
+
+          {/* Category pie chart */}
+          {categoryChartData.length > 0 && (
+            <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-5">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Gastos por Categoria</h3>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={categoryChartData} cx="50%" cy="50%" outerRadius={60} dataKey="value" paddingAngle={3}>
+                      {categoryChartData.map((_, index) => (
+                        <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                      contentStyle={TOOLTIP_STYLE}
+                    />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: '11px', color: '#64748b' }} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Categoria</label>
-              <input required type="text" list="tx-categories" placeholder="Selecione ou digite"
-                value={formData.category}
-                onChange={e => setFormData({ ...formData, category: e.target.value })}
-                className="mt-1 block w-full rounded-md border-slate-300 border p-2 sm:text-sm" />
-              <datalist id="tx-categories">
-                {categories.map(c => <option key={c} value={c} />)}
-              </datalist>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Recorrência</label>
-              <select value={formData.recurrence}
-                onChange={e => setFormData({ ...formData, recurrence: e.target.value as Recurrence })}
-                className="mt-1 block w-full rounded-md border-slate-300 border p-2 sm:text-sm">
-                {Object.values(Recurrence).map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700">Data</label>
-              <input type="date" value={formData.date}
-                onChange={e => setFormData({ ...formData, date: e.target.value })}
-                className="mt-1 block w-full rounded-md border-slate-300 border p-2 sm:text-sm" />
-            </div>
-            <button type="submit" className="w-full flex justify-center items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">
-              <Plus size={18} /> Adicionar
-            </button>
-          </form>
+          )}
         </div>
 
-        {/* Category charts */}
-        {categoryChartData.length > 0 && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <h3 className="text-base font-bold text-slate-800 mb-3">Gastos por Categoria</h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={categoryChartData} cx="50%" cy="50%" outerRadius={65} dataKey="value" paddingAngle={3}>
-                    {categoryChartData.map((_, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+        {/* Right column */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Macro income banner */}
+          <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-5" style={{ borderLeft: '3px solid #00d4aa' }}>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <ArrowUpCircle size={14} color="#00d4aa" />
+              Visão Macro de Renda
+            </h3>
+            <div className="grid grid-cols-3 gap-4 divide-x divide-[#1a2640]">
+              <div className="pr-4">
+                <p className="text-slate-600 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <Briefcase size={11} /> Ativa
+                </p>
+                <p className="text-xl font-bold text-slate-100">
+                  R$ {totalActiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+              <div className="px-4">
+                <p className="text-slate-600 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
+                  <TrendingUp size={11} /> Passiva
+                </p>
+                <p className="text-xl font-bold text-[#6366f1]">
+                  R$ {totalPassiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+              <div className="pl-4">
+                <p className="text-slate-600 text-xs uppercase tracking-wider mb-1">Total</p>
+                <p className="text-xl font-bold" style={{ color: '#00d4aa' }}>
+                  R$ {totalMacroIncome.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Income / Expense summary */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Receitas</p>
+              <p className="text-xl font-bold text-emerald-400 mt-1">
+                R$ {totalMacroIncome.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+              </p>
+            </div>
+            <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Despesas</p>
+              <p className="text-xl font-bold text-red-400 mt-1">
+                R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+              </p>
+            </div>
+            <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-4">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Saldo</p>
+              <p className={`text-xl font-bold mt-1 ${balance >= 0 ? 'text-[#00d4aa]' : 'text-red-400'}`}>
+                R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+              </p>
+            </div>
+          </div>
+
+          {/* Breakdown lists */}
+          {(categoryChartData.length > 0 || incomeCategoryData.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {categoryChartData.length > 0 && (
+                <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-4">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Despesas</h4>
+                  <div className="space-y-2">
+                    {categoryChartData.map((item, i) => (
+                      <div key={item.name} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          <span className="text-slate-400 text-xs">{item.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-medium text-slate-200 text-xs">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                          <span className="text-slate-600 text-xs ml-1">({totalExpense > 0 ? ((item.value / totalExpense) * 100).toFixed(0) : 0}%)</span>
+                        </div>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-                  <Legend iconSize={10} wrapperStyle={{ fontSize: '11px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Right column */}
-      <div className="lg:col-span-2 space-y-6">
-        {/* Macro View */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-6 rounded-xl text-white shadow-lg">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <ArrowUpCircle className="text-emerald-400" />
-            Visão Macro de Renda
-          </h3>
-          <div className="grid grid-cols-3 gap-4 divide-x divide-slate-700">
-            <div className="px-2">
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Briefcase size={12} /> Ativa
-              </p>
-              <p className="text-xl font-bold">R$ {totalActiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div className="px-4">
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1 flex items-center gap-1">
-                <TrendingUp size={12} /> Passiva (Ativos)
-              </p>
-              <p className="text-xl font-bold text-indigo-300">R$ {totalPassiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div className="px-4">
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Total Mensal</p>
-              <p className="text-xl font-bold text-emerald-400">R$ {totalMacroIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-            <p className="text-emerald-600 text-sm font-medium">Receitas Totais</p>
-            <p className="text-2xl font-bold text-emerald-700">R$ {totalMacroIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-            <p className="text-red-600 text-sm font-medium">Despesas Lançadas</p>
-            <p className="text-2xl font-bold text-red-700">R$ {totalExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-
-        {/* Spending breakdown */}
-        {(categoryChartData.length > 0 || incomeCategoryData.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {categoryChartData.length > 0 && (
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                <h4 className="text-sm font-bold text-slate-700 mb-3">Despesas por Categoria</h4>
-                <div className="space-y-2">
-                  {categoryChartData.map((item, i) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                        <span className="text-slate-600">{item.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-medium text-slate-800">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        <span className="text-xs text-slate-400 ml-1">({totalExpense > 0 ? ((item.value / totalExpense) * 100).toFixed(0) : 0}%)</span>
-                      </div>
-                    </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            {incomeCategoryData.length > 0 && (
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                <h4 className="text-sm font-bold text-slate-700 mb-3">Receitas por Categoria</h4>
-                <div className="space-y-2">
-                  {incomeCategoryData.map((item, i) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                        <span className="text-slate-600">{item.name}</span>
+              )}
+              {incomeCategoryData.length > 0 && (
+                <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl p-4">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Receitas</h4>
+                  <div className="space-y-2">
+                    {incomeCategoryData.map((item, i) => (
+                      <div key={item.name} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          <span className="text-slate-400 text-xs">{item.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-medium text-emerald-400 text-xs">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                          <span className="text-slate-600 text-xs ml-1">({totalActiveIncome > 0 ? ((item.value / totalActiveIncome) * 100).toFixed(0) : 0}%)</span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="font-medium text-emerald-700">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        <span className="text-xs text-slate-400 ml-1">({totalActiveIncome > 0 ? ((item.value / totalActiveIncome) * 100).toFixed(0) : 0}%)</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
-        {/* Transaction table */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <h3 className="text-base font-bold text-slate-800 p-6 border-b border-slate-100">Histórico de Lançamentos</h3>
-          <div className="overflow-x-auto max-h-96 overflow-y-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50 sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Descrição</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Categoria</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Data</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Valor</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Ação</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {transactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900">
-                      <div className="flex items-center gap-2">
-                        {t.type === TransactionType.INCOME
-                          ? <ArrowUpCircle size={16} className="text-emerald-500 shrink-0" />
-                          : <ArrowDownCircle size={16} className="text-red-500 shrink-0" />}
-                        <span>{t.description}</span>
-                      </div>
-                      <div className="text-xs text-slate-400 ml-6">{t.recurrence}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-600">{t.category || '—'}</span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500">{t.date}</td>
-                    <td className={`px-4 py-3 whitespace-nowrap text-sm text-right font-medium ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {t.type === TransactionType.INCOME ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                      <button onClick={() => handleDelete(t.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
-                    </td>
+          {/* Transaction table */}
+          <div className="bg-[#0f1a2e] border border-[#1a2640] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#1a2640]">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Histórico de Lançamentos</h3>
+            </div>
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="min-w-full">
+                <thead className="sticky top-0">
+                  <tr className="border-b border-[#1a2640] bg-[#0a1221]">
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Descrição</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Categoria</th>
+                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Data</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Valor</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Ação</th>
                   </tr>
-                ))}
-                {transactions.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-400">Nenhum lançamento cadastrado.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {transactions.map((t) => (
+                    <tr key={t.id} className="border-b border-[#1a2640] hover:bg-[#152038] transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2 text-sm text-slate-200">
+                          {t.type === TransactionType.INCOME
+                            ? <ArrowUpCircle size={15} color="#00d4aa" className="shrink-0" />
+                            : <ArrowDownCircle size={15} color="#f43f5e" className="shrink-0" />}
+                          <span>{t.description}</span>
+                        </div>
+                        <div className="text-xs text-slate-600 ml-6 mt-0.5">{t.recurrence}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="px-2 py-0.5 bg-[#1a2640] rounded text-xs text-slate-500">{t.category || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">{t.date}</td>
+                      <td className={`px-4 py-3 whitespace-nowrap text-sm text-right font-semibold ${t.type === TransactionType.INCOME ? 'text-[#00d4aa]' : 'text-red-400'}`}>
+                        {t.type === TransactionType.INCOME ? '+' : '-'} R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <button onClick={() => handleDelete(t.id)} className="text-slate-600 hover:text-red-400 transition-colors">
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-10 text-center text-slate-600 text-sm">
+                        Nenhum lançamento cadastrado.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

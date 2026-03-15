@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Wallet, CreditCard, ArrowRightLeft, Bot, Menu, X, Calculator, History, CalendarDays } from 'lucide-react';
+import {
+  LayoutDashboard, Wallet, CreditCard, ArrowRightLeft, Bot,
+  Menu, X, Calculator, History, CalendarDays, TrendingUp
+} from 'lucide-react';
 import { FinancialState, ViewState, LiabilityStatus } from './types';
 import { saveState, subscribeToState, DEFAULT_STATE } from './services/storageService';
 import Dashboard from './components/Dashboard';
@@ -36,22 +39,17 @@ const App: React.FC = () => {
     const reduceDay = state.settings?.debtReduceDay ?? 10;
     const lastReduced = state.settings?.lastReducedMonth ?? '';
 
-    // Calculate how many months need to be reduced
     const countPendingMonths = (): number => {
       if (!lastReduced) {
-        // Never reduced — reduce current month only if day has passed
         return currentDay >= reduceDay ? 1 : 0;
       }
-
       const [lastYear, lastMonth] = lastReduced.split('-').map(Number);
       const lastReducedDate = new Date(lastYear, lastMonth - 1, reduceDay);
       const nextReduceDate = new Date(lastReducedDate);
       nextReduceDate.setMonth(nextReduceDate.getMonth() + 1);
-
       let count = 0;
       const cursor = new Date(nextReduceDate);
       while (cursor <= today) {
-        // Only count if the reduceDay of that month has passed
         const reduceThisMonth = new Date(cursor.getFullYear(), cursor.getMonth(), reduceDay);
         if (reduceThisMonth <= today) count++;
         cursor.setMonth(cursor.getMonth() + 1);
@@ -62,7 +60,6 @@ const App: React.FC = () => {
     const months = countPendingMonths();
     if (months <= 0) return;
 
-    // Apply N amortization cycles per liability
     const updatedLiabilities = state.liabilities.map(liability => {
       if (liability.status !== LiabilityStatus.ACTIVE || liability.installmentsCount <= 0) {
         return liability;
@@ -89,7 +86,6 @@ const App: React.FC = () => {
     const updated = { ...state, liabilities: updatedLiabilities, settings: updatedSettings };
     setState(updated);
     saveState(updated);
-    console.log(`[AutoReduce] ${months} mês(es) de parcelas reduzidos. Atualizado até ${currentMonth}`);
   }, [isLoading]);
 
   // Save monthly wealth snapshot
@@ -107,7 +103,6 @@ const App: React.FC = () => {
     const updated = { ...state, wealthHistory: [...(state.wealthHistory || []), snapshot] };
     setState(updated);
     saveState(updated);
-    console.log(`[WealthHistory] Snapshot salvo para ${currentMonth}`);
   }, [isLoading]);
 
   const updateState = (newState: Partial<FinancialState>) => {
@@ -122,75 +117,93 @@ const App: React.FC = () => {
         setCurrentView(view);
         setIsMobileMenuOpen(false);
       }}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium ${
         currentView === view
-          ? 'bg-indigo-50 text-indigo-600 font-semibold shadow-sm'
-          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+          ? 'bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/20'
+          : 'text-slate-500 hover:bg-[#1a2640] hover:text-slate-300'
       }`}
     >
-      <Icon size={20} />
+      <Icon size={17} />
       <span>{label}</span>
     </button>
   );
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#070b11]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-500">Carregando dados...</p>
+          <div className="w-10 h-10 border-2 border-[#1e2d40] border-t-[#00d4aa] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500 text-sm tracking-wide">Carregando dados...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex bg-[#070b11]">
       {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 fixed h-full z-10">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            FinHealth Pro
-          </h1>
+      <aside className="hidden lg:flex flex-col w-64 bg-[#0d1526] border-r border-[#1a2640] fixed h-full z-10">
+        <div className="p-5 border-b border-[#1a2640]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #00d4aa, #0099cc)' }}>
+              <TrendingUp size={15} color="#070b11" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-slate-100 tracking-tight leading-none">
+                Fin<span style={{ color: '#00d4aa' }}>Health</span>
+              </h1>
+              <p className="text-[10px] text-slate-600 mt-0.5 tracking-widest uppercase">Pro</p>
+            </div>
+          </div>
         </div>
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <p className="px-4 text-[9px] font-semibold text-slate-600 uppercase tracking-[0.15em] mb-2 mt-1">Principal</p>
           <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Visão Geral" />
           <NavItem view="ASSETS" icon={Wallet} label="Ativos & Bens" />
           <NavItem view="LIABILITIES" icon={CreditCard} label="Dívidas & Passivos" />
           <NavItem view="CASHFLOW" icon={ArrowRightLeft} label="Receitas & Despesas" />
           <NavItem view="ADVISOR" icon={Bot} label="Consultor IA" />
-          <div className="pt-2 pb-1">
-            <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Ferramentas</p>
-          </div>
+          <p className="px-4 text-[9px] font-semibold text-slate-600 uppercase tracking-[0.15em] mb-2 mt-5">Ferramentas</p>
           <NavItem view="PLANNING" icon={Calculator} label="Planejamento" />
           <NavItem view="HISTORY" icon={History} label="Histórico" />
           <NavItem view="CALENDAR" icon={CalendarDays} label="Calendário" />
         </nav>
-        <div className="p-4 border-t border-slate-100">
-          <p className="text-xs text-slate-400 text-center">v2.0.0 - Firebase</p>
+
+        <div className="p-4 border-t border-[#1a2640]">
+          <p className="text-[10px] text-slate-600 text-center tracking-widest">v2.0.0 · Firebase</p>
         </div>
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed w-full bg-white z-20 border-b border-slate-200 px-4 py-3 flex justify-between items-center">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-          FinHealth Pro
-        </h1>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-600">
-          {isMobileMenuOpen ? <X /> : <Menu />}
+      <div className="lg:hidden fixed w-full bg-[#0d1526] z-20 border-b border-[#1a2640] px-4 py-3 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #00d4aa, #0099cc)' }}>
+            <TrendingUp size={13} color="#070b11" strokeWidth={2.5} />
+          </div>
+          <h1 className="text-base font-bold text-slate-100 tracking-tight">
+            Fin<span style={{ color: '#00d4aa' }}>Health</span>
+          </h1>
+        </div>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-10 bg-white pt-16 px-4">
-          <nav className="space-y-1">
+        <div className="lg:hidden fixed inset-0 z-10 bg-[#0d1526] pt-16 px-3 overflow-y-auto">
+          <nav className="space-y-0.5 py-4">
+            <p className="px-4 text-[9px] font-semibold text-slate-600 uppercase tracking-[0.15em] mb-2">Principal</p>
             <NavItem view="DASHBOARD" icon={LayoutDashboard} label="Visão Geral" />
             <NavItem view="ASSETS" icon={Wallet} label="Ativos & Bens" />
             <NavItem view="LIABILITIES" icon={CreditCard} label="Dívidas & Passivos" />
             <NavItem view="CASHFLOW" icon={ArrowRightLeft} label="Receitas & Despesas" />
             <NavItem view="ADVISOR" icon={Bot} label="Consultor IA" />
-            <p className="px-4 pt-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Ferramentas</p>
+            <p className="px-4 text-[9px] font-semibold text-slate-600 uppercase tracking-[0.15em] mb-2 mt-5">Ferramentas</p>
             <NavItem view="PLANNING" icon={Calculator} label="Planejamento" />
             <NavItem view="HISTORY" icon={History} label="Histórico" />
             <NavItem view="CALENDAR" icon={CalendarDays} label="Calendário" />
@@ -199,7 +212,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 p-4 lg:p-8 pt-20 lg:pt-8 overflow-y-auto">
+      <main className="flex-1 lg:ml-64 p-4 lg:p-8 pt-20 lg:pt-8 overflow-y-auto min-h-screen">
         <div className="max-w-7xl mx-auto">
           {currentView === 'DASHBOARD' && <Dashboard state={state} />}
           {currentView === 'ASSETS' && (
