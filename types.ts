@@ -21,7 +21,7 @@ export interface Asset {
   acquisitionValue: number;
   acquisitionDate: string;
   liquidity: Liquidity;
-  monthlyYield?: number; // Porcentagem de rendimento mensal (0 a 100)
+  monthlyYield?: number;
 }
 
 export enum LiabilityType {
@@ -42,8 +42,10 @@ export interface Liability {
   id: string;
   name: string;
   type: LiabilityType;
+  category: string;
   totalValue: number;
-  interestRate: number; // % ao mês
+  originalInstallments: number;
+  interestRate: number;
   installmentsCount: number;
   installmentValue: number;
   startDate: string;
@@ -72,10 +74,31 @@ export interface Transaction {
   isPaid: boolean;
 }
 
+export interface AppSettings {
+  debtReduceDay: number;
+  lastReducedMonth: string;
+}
+
 export interface FinancialState {
   assets: Asset[];
   liabilities: Liability[];
   transactions: Transaction[];
+  settings: AppSettings;
 }
 
 export type ViewState = 'DASHBOARD' | 'ASSETS' | 'LIABILITIES' | 'CASHFLOW' | 'ADVISOR';
+
+export const LIABILITY_CATEGORIES = [
+  'Habitação', 'Veículo', 'Educação', 'Saúde', 'Eletrônicos',
+  'Viagem', 'Emergência', 'Pessoal', 'Outros'
+];
+
+export const EXPENSE_CATEGORIES = [
+  'Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Educação',
+  'Lazer', 'Vestuário', 'Assinaturas', 'Utilidades', 'Outros'
+];
+
+export const INCOME_CATEGORIES = [
+  'Salário', 'Freelance', 'Aluguel', 'Dividendos', 'Rendimentos',
+  'Vendas', 'Bônus', 'Pensão', 'Outros'
+];
